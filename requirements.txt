@@ -1,0 +1,10 @@
+# Provisioning/orchestrator dependencies (run on your laptop).
+databricks-sdk>=0.38.0
+faker>=30.0.0
+holidays>=0.60
+numpy>=1.26.0
+pandas>=2.1.0
+pyarrow>=14.0.0
+fpdf2>=2.7.0
+psycopg2-binary
+requests>=2.31.0

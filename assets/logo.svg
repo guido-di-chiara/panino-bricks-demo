@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 560 180" font-family="'DM Sans','Barlow',Arial,sans-serif">
+  <!-- ===== Emblem ===== -->
+  <g>
+    <rect x="20" y="20" width="140" height="140" rx="34" fill="#0B2026"/>
+
+    <!-- top bun -->
+    <path d="M52 74 a38 30 0 0 1 76 0 z" fill="#FF5F46"/>
+    <!-- sesame seeds -->
+    <ellipse cx="76" cy="58" rx="3.4" ry="2" fill="#F9F6F4" transform="rotate(-20 76 58)"/>
+    <ellipse cx="92" cy="52" rx="3.4" ry="2" fill="#F9F6F4" transform="rotate(10 92 52)"/>
+    <ellipse cx="108" cy="58" rx="3.4" ry="2" fill="#F9F6F4" transform="rotate(25 108 58)"/>
+
+    <!-- filling: cream "brick" layer with mortar lines -->
+    <rect x="52" y="78" width="76" height="16" rx="3" fill="#F9F6F4"/>
+    <g stroke="#0B2026" stroke-width="1.4" opacity="0.55">
+      <line x1="52" y1="86" x2="128" y2="86"/>
+      <line x1="71" y1="78" x2="71" y2="86"/>
+      <line x1="90" y1="78" x2="90" y2="86"/>
+      <line x1="109" y1="78" x2="109" y2="86"/>
+      <line x1="62" y1="86" x2="62" y2="94"/>
+      <line x1="81" y1="86" x2="81" y2="94"/>
+      <line x1="100" y1="86" x2="100" y2="94"/>
+      <line x1="119" y1="86" x2="119" y2="94"/>
+    </g>
+
+    <!-- green (lettuce) -->
+    <path d="M50 98 q8 -7 16 0 q8 7 16 0 q8 -7 16 0 q8 7 16 0 q8 -7 16 0 l0 6 l-96 0 z" fill="#00B378"/>
+
+    <!-- bottom bun -->
+    <rect x="52" y="104" width="76" height="18" rx="9" fill="#FF5F46"/>
+  </g>
+
+  <!-- ===== Wordmark ===== -->
+  <text x="186" y="92" font-size="46" font-weight="700" fill="#0B2026" letter-spacing="-0.5">Panino</text>
+  <text x="186" y="138" font-size="46" font-weight="700" fill="#FF5F46" letter-spacing="-0.5">Bricks</text>
+</svg>

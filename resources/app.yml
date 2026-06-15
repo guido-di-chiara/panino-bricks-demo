@@ -1,0 +1,11 @@
+# Databricks App resource (Streamlit) for the Panino Bricks lab.
+#
+# The app source lives in ../app. Its runtime command + env come from app/app.yaml.
+# provision_lab.py rewrites app/app.yaml (MAS_ENDPOINT_NAME, catalog, schema) before
+# you deploy, so the deployed app points at the freshly created MAS endpoint.
+resources:
+  apps:
+    panino_bricks_app:
+      name: ${var.app_name}
+      description: "Panino Bricks - multi-agent demo (Supervisor + Genie + KA + Lakebase)."
+      source_code_path: ../app

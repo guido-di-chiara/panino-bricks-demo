@@ -1,0 +1,44 @@
+# Databricks Asset Bundle for the Panino Bricks lab.
+#
+# The bundle deploys the Streamlit app (resources/app.yml). The non-DAB-native
+# parts of the lab (synthetic data, Genie space, Knowledge Assistant, Multi-Agent
+# Supervisor, Lakebase, grants) are provisioned by `provision_lab.py` BEFORE you
+# run `databricks bundle deploy`. See README.md for the full runbook.
+
+bundle:
+  name: panino-bricks-lab
+
+variables:
+  catalog:
+    description: Unity Catalog (must already exist, created via UI with Default Storage).
+    default: panino_bricks_catalog
+  schema:
+    description: Schema inside the catalog.
+    default: panino_bricks
+  warehouse_id:
+    description: SQL warehouse id used for data generation and grants.
+    default: ""
+  lakebase_instance:
+    description: Lakebase (Postgres) instance name.
+    default: panino-bricks
+  lakebase_database:
+    description: Lakebase database name.
+    default: databricks_postgres
+  mas_endpoint_name:
+    description: >-
+      Multi-Agent Supervisor serving endpoint (mas-<hash>-endpoint). Auto-named at
+      creation; provision_lab.py captures it and rewrites app/app.yaml. Set it here
+      too (or pass --var) so the bundle-managed app env stays in sync.
+    default: ""
+  app_name:
+    description: Databricks App resource name.
+    default: panino-bricks
+
+include:
+  - resources/*.yml
+
+targets:
+  dev:
+    mode: development
+    default: true
+    # host is taken from the active CLI profile (`-p <profile>`); no hardcoded URL.

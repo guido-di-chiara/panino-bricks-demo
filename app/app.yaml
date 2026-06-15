@@ -1,0 +1,20 @@
+# Databricks App runtime config for the Panino Bricks lab.
+#
+# IMPORTANT: MAS_ENDPOINT_NAME is the Agent Bricks Multi-Agent Supervisor serving
+# endpoint, AUTO-NAMED `mas-<hash>-endpoint` at creation time. It is NOT known
+# until step 05 runs. `provision_lab.py` rewrites the value below (and the bundle
+# var in databricks.yml) before you deploy the app. The placeholder is replaced
+# in place; do not commit a real workspace's endpoint hash.
+command: ["streamlit", "run", "app.py", "--server.port", "8000", "--server.enableCORS", "false"]
+
+env:
+  - name: MAS_ENDPOINT_NAME
+    value: "REPLACE_WITH_MAS_ENDPOINT"
+  - name: LAKEBASE_INSTANCE_NAME
+    value: "panino-bricks"
+  - name: LAKEBASE_DATABASE_NAME
+    value: "databricks_postgres"
+  - name: PB_CATALOG
+    value: "panino_bricks_catalog"
+  - name: PB_SCHEMA
+    value: "panino_bricks"
