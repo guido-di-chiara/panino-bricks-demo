@@ -15,8 +15,6 @@ from __future__ import annotations
 import os
 import sys
 import json
-import tempfile
-import subprocess
 
 from databricks.sdk import WorkspaceClient
 
@@ -43,28 +41,19 @@ def cli_base(profile: str | None) -> list[str]:
 
 def databricks_api(method: str, path: str, profile: str | None = None,
                    body: dict | None = None, query: dict | None = None):
-    """Call the Databricks REST API via the CLI.
+    """Call the Databricks REST API via the SDK HTTP client.
 
-    Returns (parsed_json_or_None, stderr_or_raw_text). We call REST directly
-    because the Python SDK 0.114 fails to *parse* create responses for
-    knowledge_assistants / supervisor_agents even though the server succeeds.
+    Returns (parsed_json_or_None, error_string). Uses api_client.do() to bypass
+    the SDK model-parsing layer — avoids SDK parse failures for
+    knowledge_assistants / supervisor_agents while working in-process with
+    ambient auth (no CLI subprocess needed).
     """
-    p = path
-    if query:
-        p += "?" + "&".join(f"{k}={v}" for k, v in query.items())
-    cmd = ["databricks", "api", method, p]
-    if profile and not in_workspace():
-        cmd += ["-p", profile]
-    if body is not None:
-        tf = tempfile.NamedTemporaryFile("w", suffix=".json", delete=False)
-        json.dump(body, tf)
-        tf.close()
-        cmd += ["--json", f"@{tf.name}"]
-    out = subprocess.run(cmd, capture_output=True, text=True)
+    w = get_workspace_client(profile)
     try:
-        return json.loads(out.stdout), out.stderr
-    except json.JSONDecodeError:
-        return None, (out.stderr or out.stdout)
+        resp = w.api_client.do(method, path, body=body, query=query)
+        return resp, None
+    except Exception as e:
+        return None, str(e)
 
 
 def discover_warehouse_id(w: WorkspaceClient, explicit: str | None = None) -> str:

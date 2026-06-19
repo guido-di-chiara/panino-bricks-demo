@@ -64,9 +64,9 @@ if sup is None:
     })
     if sup is None:
         sys.exit(f"Create supervisor failed: {err}")
-    print(f"Created supervisor: {sup['id']}")
+    print(f"Created supervisor: {sup.get('id') or sup.get('supervisor_agent_id', sup.get('name', ''))}")
 else:
-    print(f"Reusing supervisor: {sup['id']}")
+    print(f"Reusing supervisor: {sup.get('id') or sup.get('supervisor_agent_id', sup.get('name', ''))}")
 
 sup_path = sup["name"]  # supervisor-agents/<id>
 print(f"  endpoint_name={sup.get('endpoint_name')}")

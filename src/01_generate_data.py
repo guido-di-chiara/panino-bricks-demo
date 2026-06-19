@@ -59,8 +59,9 @@ fake = Faker("it_IT")
 parser = argparse.ArgumentParser(description="Generate Panino Bricks synthetic data")
 parser.add_argument("--warehouse-id", default=None, help="SQL warehouse ID (auto-discovered if omitted)")
 parser.add_argument("--profile", default=None, help="Databricks CLI profile (omit when running in-workspace)")
-parser.add_argument("--catalog", default=None, help="Override PB_CATALOG (else config default / env)")
-parser.add_argument("--schema", default=None, help="Override PB_SCHEMA (else config default / env)")
+parser.add_argument("--catalog",  default=None, help="Override PB_CATALOG (else config default / env)")
+parser.add_argument("--schema",   default=None, help="Override PB_SCHEMA (else config default / env)")
+parser.add_argument("--n-orders", default=None, type=int, help="Override N_ORDERS (scales store volumes proportionally)")
 args = parser.parse_args()
 
 # Let CLI flags override the env BEFORE config is imported (config reads env).
@@ -68,6 +69,8 @@ if args.catalog:
     os.environ["PB_CATALOG"] = args.catalog
 if args.schema:
     os.environ["PB_SCHEMA"] = args.schema
+if args.n_orders:
+    N_ORDERS = args.n_orders
 
 from config import CATALOG, SCHEMA, VOLUME_PATH, BRAND_NAME, STORE_PREFIX  # noqa: E402,F401
 from _common import get_workspace_client, discover_warehouse_id  # noqa: E402
@@ -482,6 +485,8 @@ def get_daily_multiplier(date, store_id):
 
     return max(0.1, m * np.random.normal(1, 0.12))
 
+from tqdm import tqdm as _tqdm
+
 orders_data = []
 order_items_data = []
 order_item_toppings_data = []
@@ -490,6 +495,15 @@ order_idx = 0
 item_idx = 0
 topping_idx = 0
 
+# Pre-build lookup dicts to avoid per-item DataFrame scans inside the loop
+product_price_map = dict(zip(products_pdf["product_id"], products_pdf["base_price"]))
+topping_price_map = dict(zip(toppings_pdf["topping_id"],  toppings_pdf["price"]))
+
+# Pre-normalise hour probabilities once (identical for every order)
+_hour_probs_raw = [0.01]*8 + [0.03, 0.05, 0.06, 0.05, 0.08, 0.10, 0.08, 0.10, 0.12, 0.10, 0.08, 0.07, 0.05, 0.03, 0.02, 0.01]
+_hour_probs     = [p / sum(_hour_probs_raw) for p in _hour_probs_raw]
+
+_pbar = _tqdm(total=N_ORDERS, desc="Generating orders", unit="order")
 # Generate orders distributed across dates and stores
 # Derive base volume from store age: flagships (2+ yr) get 45-60, newer get less
 store_base_volume = {}
@@ -507,7 +521,7 @@ for s in stores_data:
         base = int(12 + (age_days - 60) / 120 * 8)
     else:                      # <2 months: new
         base = 10
-    store_base_volume[s["store_id"]] = base
+    store_base_volume[s["store_id"]] = max(1, round(base * N_ORDERS / 200_000))
 
 for day in pd.date_range(START_DATE, END_DATE):
     day_dt = day.to_pydatetime()
@@ -529,9 +543,7 @@ for day in pd.date_range(START_DATE, END_DATE):
 
             # Order time - peaks at lunch and after work
             # Hours 0-7 are low traffic, 8-23 ramp up with lunch/afternoon peaks
-            hour_probs = [0.01]*8 + [0.03, 0.05, 0.06, 0.05, 0.08, 0.10, 0.08, 0.10, 0.12, 0.10, 0.08, 0.07, 0.05, 0.03, 0.02, 0.01]
-            hour_probs = [p/sum(hour_probs) for p in hour_probs]
-            hour = np.random.choice(range(24), p=hour_probs)
+            hour = np.random.choice(range(24), p=_hour_probs)
             minute = np.random.randint(0, 60)
             order_time = f"{hour:02d}:{minute:02d}"
 
@@ -543,14 +555,12 @@ for day in pd.date_range(START_DATE, END_DATE):
 
             for j in range(n_items):
                 product_id = np.random.choice(product_ids, p=product_weights)
-                product = products_pdf[products_pdf["product_id"] == product_id].iloc[0]
-
                 size = np.random.choice(sizes, p=size_weights)
                 bread = np.random.choice(bread_types, p=bread_weights)
                 toasting = np.random.choice(toasting_options, p=toasting_weights)
                 sauce = np.random.choice(sauce_options, p=sauce_weights)
 
-                item_price = round(product["base_price"] + size_price_add[size] + sauce_upcharge[sauce], 2)
+                item_price = round(product_price_map[product_id] + size_price_add[size] + sauce_upcharge[sauce], 2)
                 order_subtotal += item_price
 
                 item_id = f"ITM-{item_idx:07d}"
@@ -573,7 +583,7 @@ for day in pd.date_range(START_DATE, END_DATE):
                 selected_toppings = np.random.choice(topping_ids, size=min(n_toppings, len(topping_ids)), replace=False, p=topping_weights) if n_toppings > 0 else []
 
                 for top_id in selected_toppings:
-                    top_price = toppings_pdf[toppings_pdf["topping_id"] == top_id]["price"].values[0]
+                    top_price = topping_price_map[top_id]
                     order_subtotal += top_price
                     order_item_toppings_data.append({
                         "order_item_topping_id": f"OIT-{topping_idx:07d}",
@@ -616,11 +626,13 @@ for day in pd.date_range(START_DATE, END_DATE):
                 "status": np.random.choice(["completed", "completed", "completed", "refunded"], p=[0.97, 0.01, 0.01, 0.01]),
             })
             order_idx += 1
+            _pbar.update(1)
 
         if order_idx >= N_ORDERS:
             break
     if order_idx >= N_ORDERS:
         break
+_pbar.close()
 
 orders_pdf = pd.DataFrame(orders_data)
 order_items_pdf = pd.DataFrame(order_items_data)

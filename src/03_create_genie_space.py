@@ -1,10 +1,13 @@
 """Step 03 - Author + create the Panino Bricks Genie space.
 
-Builds a serialized Genie space (tables, instructions, example SQL) with the vibe
-`genie-rooms` skill helper (GenieSpaceBuilder), then creates it via REST:
-  databricks api post /api/2.0/genie/spaces --json @<payload>
+
+Builds a serialized Genie space (tables, instructions, example SQL) and creates it
+via REST:
+  POST /api/2.0/genie/spaces
+
 
 Captures and prints the created GENIE_SPACE_ID (the orchestrator reads it).
+
 
 PATCH/serialization rules baked in (learned the hard way):
   - text_instructions must have AT MOST ONE item.
@@ -12,8 +15,6 @@ PATCH/serialization rules baked in (learned the hard way):
     must be sorted by their uuid `id`.
   - benchmark answer `format` must be "SQL".
 
-Requires the `genie-rooms` skill resources on the path. Set GENIE_BUILDER_PATH
-if the cached default below does not match your install.
 
 Run standalone:
   python src/03_create_genie_space.py --profile <ws> --catalog <cat> --warehouse-id <wh>
@@ -21,11 +22,14 @@ Run standalone:
 import os
 import sys
 import json
+import uuid
 import argparse
+
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(_HERE))  # repo root (config.py)
 sys.path.insert(0, _HERE)                    # src/ (_common.py)
+
 
 parser = argparse.ArgumentParser(description="Create Panino Bricks Genie space")
 parser.add_argument("--profile", default=None, help="Databricks CLI profile (omit in-workspace)")
@@ -38,39 +42,106 @@ parser.add_argument("--out", default="/tmp/pb_create_genie_space.json",
                     help="Where to write the create payload")
 args = parser.parse_args()
 
+
 if args.catalog:
     os.environ["PB_CATALOG"] = args.catalog
 if args.schema:
     os.environ["PB_SCHEMA"] = args.schema
 
+
 from config import CATALOG, SCHEMA, GENIE_SPACE_TITLE  # noqa: E402
 from _common import get_workspace_client, discover_warehouse_id, databricks_api  # noqa: E402
 
-# Locate the genie-rooms skill helper.
-_DEFAULT_BUILDER = os.path.expanduser(
-    "~/.claude/plugins/cache/fe-vibe/fe-internal-tools/1.4.0/skills/genie-rooms/resources"
-)
-sys.path.insert(0, os.environ.get("GENIE_BUILDER_PATH", _DEFAULT_BUILDER))
-try:
-    from genie_space_builder import GenieSpaceBuilder  # noqa: E402
-except Exception as exc:  # pragma: no cover - only at runtime without the skill
-    sys.exit(
-        "Could not import genie_space_builder. Install/enable the vibe `genie-rooms` "
-        "skill and/or set GENIE_BUILDER_PATH to its resources dir.\n"
-        f"Original error: {exc}"
-    )
+
+# ---------------------------------------------------------------------------
+# Native GenieSpaceBuilder — no external plugin required.
+# Builds the serialized_space payload for POST /api/2.0/genie/spaces.
+# ---------------------------------------------------------------------------
+
+
+class GenieSpaceBuilder:
+    """Builds the serialized_space payload for the Genie Spaces REST API.
+
+
+    Rules observed from the API:
+      - text_instructions must have AT MOST ONE item.
+      - id-bearing lists (example_question_sqls, benchmarks) must be sorted by id.
+    """
+
+
+    def __init__(self, title: str, description: str, warehouse_id: str):
+        self.title = title
+        self.description = description
+        self.warehouse_id = warehouse_id
+        self._tables: list[str] = []
+        self._instruction: str | None = None
+        self._example_sqls: list[dict] = []
+
+
+    def set_instructions(self, instruction: str) -> None:
+        """Set the single free-text instruction block for the space."""
+        self._instruction = instruction
+
+
+    def add_table(self, table_name: str) -> None:
+        """Add a Unity Catalog table (fully qualified) to the space data sources."""
+        self._tables.append(table_name)
+
+
+    def add_example_sql(self, title: str, sql: str) -> None:
+        """Add an example question/SQL pair. A hex UUID is generated automatically."""
+        self._example_sqls.append({
+            "id": uuid.uuid4().hex,
+            "question": [title],
+            "sql": [sql],
+        })
+
+
+    def validate(self) -> None:
+        """Raise ValueError if the builder state is invalid."""
+        if not self._tables:
+            raise ValueError("At least one table must be added via add_table().")
+        if not self.warehouse_id:
+            raise ValueError("warehouse_id is required.")
+
+
+    def to_dict(self) -> dict:
+        """Return the inner space dict (to be JSON-encoded as serialized_space)."""
+        d: dict = {
+            "version": 1,
+            "data_sources": {
+                "tables": [{"identifier": t} for t in sorted(self._tables)],
+            },
+        }
+        instructions: dict = {}
+        if self._instruction:
+            instructions["text_instructions"] = [
+                {"id": uuid.uuid4().hex, "content": [self._instruction]}
+            ]
+        if self._example_sqls:
+            instructions["example_question_sqls"] = list(self._example_sqls)
+        if instructions:
+            d["instructions"] = instructions
+        return d
+
+
+# ---------------------------------------------------------------------------
+
 
 w = get_workspace_client(args.profile)
 WH = discover_warehouse_id(w, args.warehouse_id or os.environ.get("PB_WAREHOUSE_ID"))
 parent_path = args.parent_path or f"/Workspace/Users/{w.current_user.me().user_name}"
 
+
 CAT, SCH = CATALOG, SCHEMA
+
 
 space = GenieSpaceBuilder(
     title=GENIE_SPACE_TITLE,
     description="Analisi vendite, scorte, clienti e promozioni della catena italiana di paninoteche Panino Bricks.",
     warehouse_id=WH,
 )
+
 
 space.set_instructions(
     "Panino Bricks e' una catena italiana di paninoteche con punti vendita in Italia. "
@@ -92,10 +163,12 @@ space.set_instructions(
     "Le scorte basse si valutano da inventory_transactions aggregate per ingrediente/store rispetto a ingredients.reorder_threshold."
 )
 
+
 for t in ["stores", "products", "toppings", "ingredients", "suppliers", "promotions",
           "customers", "orders", "order_items", "order_item_toppings",
           "purchase_orders", "inventory_transactions", "promotion_redemptions"]:
     space.add_table(f"{CAT}.{SCH}.{t}")
+
 
 space.add_example_sql(
     title="Top 10 panini piu' venduti per pezzi",
@@ -128,7 +201,9 @@ space.add_example_sql(
     ),
 )
 
+
 space.validate()
+
 
 # The API requires id-bearing lists (example_question_sqls, benchmarks) sorted by id.
 inner_dict = space.to_dict()
@@ -157,9 +232,11 @@ create_payload = {
 with open(args.out, "w") as f:
     json.dump(create_payload, f, indent=2)
 
+
 inner = json.loads(serialized)
 print("Genie space payload written to", args.out)
 print("  tables:", len(inner.get("data_sources", {}).get("tables", [])))
+
 
 # Create the space via REST.
 resp, err = databricks_api("POST", "/api/2.0/genie/spaces", profile=args.profile, body=create_payload)
@@ -168,3 +245,6 @@ if resp is None:
 space_id = resp.get("space_id") or resp.get("id")
 print(f"Created Genie space.")
 print(f"\nGENIE_SPACE_ID={space_id}")
+
+
+ 
