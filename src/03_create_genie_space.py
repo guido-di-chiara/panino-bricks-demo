@@ -137,7 +137,7 @@ CAT, SCH = CATALOG, SCHEMA
 
 
 space = GenieSpaceBuilder(
-    title=GENIE_SPACE_TITLE,
+    title=f"{GENIE_SPACE_TITLE}_{SCH}",
     description="Analisi vendite, scorte, clienti e promozioni della catena italiana di paninoteche Panino Bricks.",
     warehouse_id=WH,
 )
@@ -223,7 +223,7 @@ def _sort_by_id(obj):
 _sort_by_id(inner_dict)
 serialized = json.dumps(inner_dict)  # JSON-encoded string of the inner serialized_space
 create_payload = {
-    "title": GENIE_SPACE_TITLE,
+    "title": f"{GENIE_SPACE_TITLE}_{SCH}",
     "description": "Analisi vendite, scorte, clienti e promozioni della catena italiana di paninoteche Panino Bricks.",
     "parent_path": parent_path,
     "warehouse_id": WH,

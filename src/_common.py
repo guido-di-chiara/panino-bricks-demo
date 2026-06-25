@@ -67,3 +67,42 @@ def discover_warehouse_id(w: WorkspaceClient, explicit: str | None = None) -> st
     chosen = running[0] if running else warehouses[0]
     print(f"  Using warehouse: {chosen.name} ({chosen.id})")
     return chosen.id
+
+
+import io, os, re, runpy, sys
+
+sys.dont_write_bytecode = True  # prevent __pycache__ errors on serverless
+
+try:
+    _HERE = "/Workspace" + os.path.dirname(
+        dbutils.notebook.entry_point.getDbutils().notebook().getContext().notebookPath().get()
+    )
+except:
+    _HERE = os.getcwd()
+
+def run_script(script_name, **params):
+    """Run a Python script in-process, forwarding non-empty kwargs as CLI --key=value args.
+    Returns a dict of KEY=VALUE lines printed by the script (for chaining between steps)."""
+    script = os.path.join(_HERE, script_name)
+    sys.argv = [script] + [f"--{k.replace('_', '-')}={v}" for k, v in params.items() if v != ""]
+
+    _buf, _orig = io.StringIO(), sys.stdout
+
+    class _Tee:
+        def write(self, s):  _orig.write(s); _buf.write(s)
+        def flush(self):     _orig.flush()
+        def __getattr__(self, n): return getattr(_orig, n)
+
+    sys.stdout = _Tee()
+    try:
+        runpy.run_path(script, run_name="__main__")
+    finally:
+        sys.stdout = _orig
+
+    # Parse KEY=VALUE lines (e.g. GENIE_SPACE_ID=abc123) from the script output
+    outputs = {}
+    for line in _buf.getvalue().splitlines():
+        m = re.match(r'^([A-Z][A-Z0-9_]+)=(.+)', line.strip())
+        if m:
+            outputs[m.group(1)] = m.group(2)
+    return outputs
