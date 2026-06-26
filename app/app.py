@@ -572,23 +572,28 @@ Questo assistente è guidato dal **Supervisor {BRAND_NAME} HQ**, che instrada la
     st.divider()
     st.header("Conversazioni")
 
-    col_new, col_clear = st.columns(2)
-    with col_new:
-        if st.button("Nuova Chat", use_container_width=True):
-            st.session_state.conversation_id = None
-            st.session_state.messages = []
-            st.session_state.viewing_history = False
-            st.rerun()
-    with col_clear:
-        if st.button("Cancella Cronologia", use_container_width=True):
-            if st.session_state.db_available:
-                try:
-                    delete_all_conversations()
-                except Exception:
-                    pass
-            st.session_state.conversation_id = None
-            st.session_state.messages = []
-            st.rerun()
+    # col_new, col_clear = st.columns(2)
+    # with col_new:
+    #     if st.button("Nuova Chat", use_container_width=True):
+    #         st.session_state.conversation_id = None
+    #         st.session_state.messages = []
+    #         st.session_state.viewing_history = False
+    #         st.rerun()
+    # with col_clear:
+    #     if st.button("Cancella Cronologia", use_container_width=True):
+    #         if st.session_state.db_available:
+    #             try:
+    #                 delete_all_conversations()
+    #             except Exception:
+    #                 pass
+    #         st.session_state.conversation_id = None
+    #         st.session_state.messages = []
+    #         st.rerun()
+    if st.button("Nuova Chat", use_container_width=True):
+        st.session_state.conversation_id = None
+        st.session_state.messages = []
+        st.session_state.viewing_history = False
+        st.rerun()
 
     st.divider()
 
