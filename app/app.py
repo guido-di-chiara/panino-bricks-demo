@@ -378,7 +378,7 @@ def _init_with_timeout(timeout=15):
     result = {"ok": False, "error": None}
     def _run():
         try:
-            init_db()
+            # init_db()
             result["ok"] = True
         except Exception as e:
             result["error"] = str(e)

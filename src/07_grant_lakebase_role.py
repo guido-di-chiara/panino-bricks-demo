@@ -63,6 +63,27 @@ else:
 
 cur.execute(f'GRANT CREATE, CONNECT, TEMPORARY ON DATABASE "{database}" TO "{args.sp}"')
 print(f"granted CREATE/CONNECT/TEMPORARY on {database} to {args.sp}")
+
+
+
+SCHEMA = "panino_app"
+
+# Schema-level grants (read + write on panino_app)
+cur.execute(f'GRANT USAGE, CREATE ON SCHEMA "{SCHEMA}" TO "{args.sp}"')
+print(f"granted USAGE, CREATE on schema {SCHEMA} to {args.sp}")
+
+cur.execute(
+    f'GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA "{SCHEMA}" TO "{args.sp}"'
+)
+print(f"granted SELECT/INSERT/UPDATE/DELETE on all tables in {SCHEMA} to {args.sp}")
+
+# Ensure future tables in the schema are also accessible
+cur.execute(
+    f'ALTER DEFAULT PRIVILEGES IN SCHEMA "{SCHEMA}" '
+    f'GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO "{args.sp}"'
+)
+print(f"set default privileges on future tables in {SCHEMA} for {args.sp}")
+
 cur.close()
 conn.close()
 print("DONE - the app SP can now authenticate to Lakebase via OAuth.")

@@ -87,11 +87,18 @@ for label, ep in (("MAS", args.mas_endpoint), ("KA", args.ka_endpoint)):
     if not ep:
         print(f"  (skipping {label} endpoint grant - no name provided)")
         continue
-    print(f"Granting CAN_QUERY on {label} endpoint {ep}...")
+
+    # risolvi il nome nello UUID dell'endpoint
+    resp = databricks_api("GET", f"/api/2.0/serving-endpoints/{ep}", profile=args.profile)
+    body = next(x for x in resp if isinstance(x, dict))  # prende il dict dalla tupla
+    ep_id = body["id"]
+
+    print(f"Granting CAN_QUERY on {label} endpoint {ep} ({ep_id})...")
     databricks_api(
-        "PATCH", f"/api/2.0/permissions/serving-endpoints/{ep}", profile=args.profile,
+        "PATCH", f"/api/2.0/permissions/serving-endpoints/{ep_id}", profile=args.profile,
         body={"access_control_list": [{"service_principal_name": SP, "permission_level": "CAN_QUERY"}]},
     )
+
 
 # --- 4. Genie space CAN_RUN ---
 if args.genie_space_id:
