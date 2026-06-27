@@ -47,7 +47,7 @@ cred = w.database.generate_database_credential(
 me = w.current_user.me().user_name
 
 conn = psycopg2.connect(
-    host=inst.read_write_dns, dbname=database, user=me, password=cred.token,
+    host=inst.read_write_dns, dbname=database, user='demo_30_giugno_gruppo', password=cred.token,
     port=5432, sslmode="require", connect_timeout=15,
 )
 conn.autocommit = True
